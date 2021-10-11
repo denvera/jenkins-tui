@@ -9,9 +9,12 @@ from textual.app import App
 from textual.widgets import ScrollView
 from textual.reactive import Reactive
 
+from .widgets.home_widget import HomeWidget
+
 from . import config
 from .client import Jenkins
 from .views import WindowView
+from .views.job_view import JobView
 from .widgets import (
     Header,
     Footer,
@@ -40,17 +43,7 @@ class ClientConfig:
 class JenkinsTUI(App):
     """This is the base class for Jenkins TUI."""
 
-    style: Reactive[str] = Reactive("")
-    height: Union[Reactive[int], None] = Reactive(None)
-
     current_node: Reactive[str] = Reactive("root")
-
-    running_builds: Reactive[List[Dict[str, str]]] = Reactive("")
-    queued_builds: Reactive[List[Dict[str, str]]] = Reactive("")
-
-    current_job_url: Reactive[str] = Reactive("")
-    current_job_builds: Reactive[str] = Reactive("")
-
     chicken_mode_enabled: Reactive[bool] = False
     client: Jenkins
 
@@ -74,7 +67,7 @@ class JenkinsTUI(App):
             "queue": "col,queue",
         }
 
-        super().__init__(title=title, log=log)
+        super().__init__(title=title, log=log, log_verbosity=3)
 
     def __get_client(self) -> Jenkins:
         """Gets an instance of jenkins.Jenkins. Arguments are read from config. If the config doesn't exist, the user is prompted with some questions.
@@ -152,14 +145,14 @@ class JenkinsTUI(App):
 
         # Dock container
         # This is the main container that holds our info widget and the body
-        self.info = JobInfo()
-        self.build_queue = BuildQueue(client=self.client)
-        self.executor_status = ExecutorStatus(client=self.client)
+        # self.info = JobInfo()
+        # self.build_queue = BuildQueue(client=self.client)
+        # self.executor_status = ExecutorStatus(client=self.client)
 
-        self.container = WindowView()
-        await self.container.dock(*[self.info, self.build_queue, self.executor_status])
-
-        await self.view.dock(self.container)
+        # self.container = WindowView()
+        # await self.container.dock(*[self.info, self.build_queue, self.executor_status])
+        await self.view.dock(HomeWidget(client=self.client))
+        # await self.view.dock(self.container)
 
     # Message handlers
     async def handle_root_click(self, message: RootClick) -> None:
@@ -208,10 +201,12 @@ class JenkinsTUI(App):
             if build_info["healthReport"]:
                 info_text += f"\n\n[bold]health[/bold]\n{build_info['healthReport'][0]['description']}"
 
-            info = JobInfo(title=name, text=info_text)
-            builds = BuildTable(client=self.client, url=message.url)
+            # info = JobInfo(title=name, text=info_text)
+            # builds = BuildTable(client=self.client, url=message.url)
 
-            await self.container.update(info, builds)
+            container = JobView(client=self.client, url=message.url)
+            await self.view.dock(container)
+            await self.view.refresh_layout()
 
         if message.node_name != self.current_node:
             self.current_node = message.node_name
